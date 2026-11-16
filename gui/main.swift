@@ -29,13 +29,15 @@ final class Runner: ObservableObject {
         hcliPath = candidates.first { FileManager.default.isExecutableFile(atPath: $0) } ?? candidates[2]
     }
 
-    func start(email: String, password: String, ipa: String, udid: String) {
+    func start(email: String, password: String, ipa: String, udid: String, watchUDID: String) {
         guard !running else { return }
         running = true
         finished = false
         ok = false
         log = ""
         buffer = ""
+        need2FA = false
+        twoFA = ""
 
         let p = Process()
         p.executableURL = URL(fileURLWithPath: hcliPath)
@@ -45,6 +47,7 @@ final class Runner: ObservableObject {
         env["APPLE_ID"] = email
         env["APPLE_PASSWORD"] = password
         env["ANISETTE_URL"] = "https://ani.stikstore.app"
+        env["WATCH_UDID"] = watchUDID.trimmingCharacters(in: .whitespacesAndNewlines)
         env["PATH"] = "/usr/bin:/bin:/usr/sbin:/sbin"
         p.environment = env
 
@@ -96,6 +99,7 @@ final class Runner: ObservableObject {
         if let d = line.data(using: .utf8) { try? h.write(contentsOf: d) }
         need2FA = false
         twoFA = ""
+        buffer = ""
     }
 
     func abort() {
@@ -112,6 +116,7 @@ struct ContentView: View {
     @State private var password: String = ""
     @State private var ipa: String = ContentView.defaultIPA()
     @State private var udid: String = ""
+    @State private var watchUDID: String = ""
     @State private var showAbout = false
 
     static func defaultIPA() -> String {
@@ -151,6 +156,10 @@ struct ContentView: View {
                         TextField("留空则自动选择第一台已连接设备", text: $udid)
                             .textFieldStyle(.roundedBorder)
                     }
+                    labeled("手表 UDID") {
+                        TextField("填写自己的 Apple Watch UDID（Xcode 设备窗口可查看）", text: $watchUDID)
+                            .textFieldStyle(.roundedBorder)
+                    }
                 }
                 .padding(6)
             }
@@ -180,7 +189,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .disabled(runner.running || email.isEmpty || password.isEmpty)
+                .disabled(runner.running || email.isEmpty || password.isEmpty || watchUDID.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 
                 Button("中止") { runner.abort() }
                     .controlSize(.large)
@@ -207,7 +216,7 @@ struct ContentView: View {
                 .font(.system(size: 30))
                 .foregroundStyle(.tint)
             VStack(alignment: .leading, spacing: 2) {
-                Text("HermesEnabler 安装器")
+                Text("HermesEnabler 安装器 · 修复版")
                     .font(.title2).bold()
                 Text("Apple ID 免费签名 · 含 Watch app 与 App Group")
                     .font(.caption)
@@ -234,7 +243,7 @@ struct ContentView: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()
-            Text("v1.0 · MIT")
+            Text("v1.0.1 本地修复版 · MIT")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
         }
@@ -259,7 +268,7 @@ struct ContentView: View {
     }
 
     private func startInstall() {
-        runner.start(email: email, password: password, ipa: ipa, udid: udid)
+        runner.start(email: email, password: password, ipa: ipa, udid: udid, watchUDID: watchUDID)
     }
 }
 

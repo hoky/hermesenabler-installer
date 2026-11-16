@@ -17,16 +17,19 @@ use isideload::anisette::remote_v3::RemoteV3AnisetteProvider;
 use isideload::auth::apple_account::{
     AppleAccount, TwoFactorCallbackParams, TwoFactorCallbackResponse,
 };
+use isideload::dev::developer_session::DeveloperSession;
 use isideload::dev::device_type::DeveloperDeviceType;
 use isideload::dev::devices::DevicesApi;
-use isideload::dev::developer_session::DeveloperSession;
-use isideload::sideload::builder::MaxCertsBehavior;
 use isideload::sideload::SideloaderBuilder;
+use isideload::sideload::builder::MaxCertsBehavior;
 use isideload::util::storage::new_storage;
 
 type TfaBox = Box<
-    dyn Fn(TwoFactorCallbackParams) -> Pin<Box<dyn Future<Output = Result<TwoFactorCallbackResponse, rootcause::Report>> + Send>>
-        + Send
+    dyn Fn(
+            TwoFactorCallbackParams,
+        ) -> Pin<
+            Box<dyn Future<Output = Result<TwoFactorCallbackResponse, rootcause::Report>> + Send>,
+        > + Send
         + Sync,
 >;
 
@@ -55,8 +58,27 @@ async fn main() -> Result<(), rootcause::Report> {
     isideload::init().ok();
 
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).map(String::as_str) == Some("--check-network") {
+        let client = isideload::auth::grandslam::GrandSlam::build_reqwest_client(false, None)?;
+        for attempt in 1..=5 {
+            let response = client
+                .get("https://developerservices2.apple.com/")
+                .header("Connection", "close")
+                .send()
+                .await?;
+            println!(
+                "[网络] Apple TLS 检查 {attempt}/5: HTTP {}",
+                response.status()
+            );
+            response.bytes().await?;
+        }
+        println!("[+] 网络检查通过（未登录，未提交签名或设备更改）");
+        return Ok(());
+    }
     if args.len() < 2 {
-        eprintln!("用法: APPLE_ID=you@example.com hcli <app.ipa> [device-udid]");
+        eprintln!(
+            "用法: WATCH_UDID=你的手表UDID APPLE_ID=you@example.com hcli <app.ipa> [device-udid]\n网络检查: hcli --check-network"
+        );
         std::process::exit(2);
     }
     let ipa = std::path::PathBuf::from(&args[1]);
@@ -69,10 +91,15 @@ async fn main() -> Result<(), rootcause::Report> {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty());
 
+    // Never register or install onto a developer's hard-coded Watch.
+    let watch_udid = std::env::var("WATCH_UDID")
+        .ok().map(|s| s.trim().to_owned()).filter(|s| !s.is_empty())
+        .ok_or_else(|| rootcause::report!("请填写你自己的 Apple Watch UDID（可在 Xcode 的 Device Hub（旧版为 Devices and Simulators）查看），然后重新开始。"))?;
+
     let email = std::env::var("APPLE_ID").unwrap_or_else(|_| read_line("Apple ID: "));
     let password = std::env::var("APPLE_PASSWORD").unwrap_or_else(|_| read_password("Password: "));
-    let anisette_url = std::env::var("ANISETTE_URL")
-        .unwrap_or_else(|_| "https://ani.stikstore.app".to_string());
+    let anisette_url =
+        std::env::var("ANISETTE_URL").unwrap_or_else(|_| "https://ani.stikstore.app".to_string());
 
     println!("[*] Apple ID: {email}");
     println!("[*] anisette: {anisette_url}");
@@ -109,16 +136,21 @@ async fn main() -> Result<(), rootcause::Report> {
     let mut conn = UsbmuxdConnection::default().await?;
     let devices = conn.get_devices().await?;
     if devices.is_empty() {
-        return Err(rootcause::report!("usbmuxd 没有发现任何设备（iPhone 是否插好并已信任？）"));
+        return Err(rootcause::report!(
+            "usbmuxd 没有发现任何设备（iPhone 是否插好并已信任？）"
+        ));
     }
     let dev = match &want_udid {
         Some(u) => devices
             .iter()
             .find(|d| d.udid == *u)
             .ok_or_else(|| rootcause::report!("未找到设备 {}", u))?,
-        None => devices.first().ok_or_else(|| rootcause::report!("无设备"))?,
+        None => devices
+            .first()
+            .ok_or_else(|| rootcause::report!("无设备"))?,
     };
-    let addr = UsbmuxdAddr::from_env_var().unwrap_or_else(|_| UsbmuxdAddr::UnixSocket(UsbmuxdAddr::SOCKET_FILE.to_string()));
+    let addr = UsbmuxdAddr::from_env_var()
+        .unwrap_or_else(|_| UsbmuxdAddr::UnixSocket(UsbmuxdAddr::SOCKET_FILE.to_string()));
     let provider = dev.to_provider(addr, "hcli");
     println!("[+] 目标设备: {} ({})", dev.udid, dev.device_id);
 
@@ -130,26 +162,17 @@ async fn main() -> Result<(), rootcause::Report> {
         .build();
 
     // 先把手表 UDID 注册进团队，否则 watch app 的 profile 里不会有它。
-    let watch_udid = std::env::var("WATCH_UDID")
-        .unwrap_or_else(|_| "00008310-000A4A103A88E01E".to_string());
-    match sideloader.get_team().await {
-        Ok(team) => {
-            match sideloader
-                .get_dev_session()
-                .ensure_device_registered(
-                    &team,
-                    "Apple Watch",
-                    &watch_udid,
-                    Some(DeveloperDeviceType::Watchos),
-                )
-                .await
-            {
-                Ok(_) => println!("[+] 手表已注册为开发设备: {watch_udid}"),
-                Err(e) => println!("[!] 手表注册失败（继续）: {e:#}"),
-            }
-        }
-        Err(e) => println!("[!] 取团队失败: {e:#}"),
-    }
+    let team = sideloader.get_team().await?;
+    sideloader
+        .get_dev_session()
+        .ensure_device_registered(
+            &team,
+            "Apple Watch",
+            &watch_udid,
+            Some(DeveloperDeviceType::Watchos),
+        )
+        .await?;
+    println!("[+] 手表已注册为开发设备: {watch_udid}");
 
     println!("[*] 签名中（含内嵌 Watch app 与 App Group）…");
     let (signed, special) = sideloader
@@ -192,11 +215,18 @@ async fn main() -> Result<(), rootcause::Report> {
                     println!("[*] 正在把手表 App 推到 {} …", watch_udid);
                     let out = std::process::Command::new("/usr/bin/xcrun")
                         .args([
-                            "devicectl", "device", "install", "app",
-                            "--device", &watch_udid,
+                            "devicectl",
+                            "device",
+                            "install",
+                            "app",
+                            "--device",
+                            &watch_udid,
                             path.to_str().unwrap_or_default(),
                         ])
-                        .env("DEVELOPER_DIR", "/Applications/Xcode.app/Contents/Developer")
+                        .env(
+                            "DEVELOPER_DIR",
+                            "/Applications/Xcode.app/Contents/Developer",
+                        )
                         .output();
                     match out {
                         Ok(o) => {
@@ -206,16 +236,22 @@ async fn main() -> Result<(), rootcause::Report> {
                             if o.status.success() {
                                 println!("[+] 手表安装成功");
                             } else {
-                                println!("[!] 手表安装失败（退出码 {}）", o.status.code().unwrap_or(-1));
+                                return Err(rootcause::report!(
+                                    "手表安装失败（退出码 {}），请查看上面的 devicectl 错误。",
+                                    o.status.code().unwrap_or(-1)
+                                ));
                             }
                         }
-                        Err(e) => println!("[!] 调 devicectl 失败: {e}"),
+                        Err(e) => return Err(rootcause::report!("调用 devicectl 失败: {e}")),
                     }
                 }
             }
         }
     } else {
-        println!("[!] 签名产物里没有 Watch 目录: {}", watch_dir.display());
+        return Err(rootcause::report!(
+            "签名产物里没有 Watch 目录: {}",
+            watch_dir.display()
+        ));
     }
 
     Ok(())

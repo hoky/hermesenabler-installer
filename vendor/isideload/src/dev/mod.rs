@@ -5,6 +5,7 @@ pub mod developer_session;
 pub mod device_type;
 pub mod devices;
 pub mod teams;
+mod transport;
 
 // Some non-alphanumeric characters cause Developer error 35:
 // An invalid value was provided for the parameter 'appIdName'.

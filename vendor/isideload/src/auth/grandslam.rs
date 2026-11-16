@@ -258,13 +258,15 @@ impl GrandSlam {
         #[cfg(not(feature = "wasm"))]
         let cert = Certificate::from_der(APPLE_ROOT)?;
         #[cfg(not(feature = "wasm"))]
-        let client = ClientBuilder::new()
+        let builder = ClientBuilder::new()
             .add_root_certificate(cert)
             .http1_title_case_headers()
             .danger_accept_invalid_certs(debug)
             .connection_verbose(debug)
-            // .pool_max_idle_per_host(0)
-            .build()?;
+            .connect_timeout(std::time::Duration::from_secs(15))
+            .timeout(std::time::Duration::from_secs(60));
+        #[cfg(not(feature = "wasm"))]
+        let client = builder.build()?;
         #[cfg(feature = "wasm")]
         let client = ClientBuilder::new().build()?;
 

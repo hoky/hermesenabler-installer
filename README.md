@@ -1,5 +1,15 @@
 # HermesEnabler 安装器
 
+## 本地修复版 1.0.1
+
+- Apple 请求增加连接和请求超时，保留原有 TLS 实现和证书校验。
+- Apple 开发者请求在建立连接失败时按 1、2、4 秒退避重试，最多共 4 次。服务器拒绝、响应读取失败等不会重复提交，以免重复创建或吊销证书。
+- 删除写死的作者手表 UDID；在界面填写自己的「手表 UDID」，Xcode 27 可从 Xcode → Open Developer Tool → Device Hub 配对并查看，旧版 Xcode 则使用 Window → Devices and Simulators。命令行通过 `WATCH_UDID` 指定。手表注册失败时停止，安装失败不再显示成功。
+- 构建产物：`build/HermesEnabler-Fixed.app`，可与原版并存。
+- 无账户网络检查：`build/HermesEnabler-Fixed.app/Contents/MacOS/hcli --check-network`。
+
+源码修复和网络检查不能代替真实签名验证，最后需要用户在修复版中登录并完成安装。
+
 [English](README.en.md) · **中文**
 
 一个 macOS 图形工具：用**免费 Apple ID** 给 HermesEnabler 签名，把 iPhone 和 Apple Watch 一次装好，并且把 **App Group** 正确写进 Watch 的 provisioning profile。

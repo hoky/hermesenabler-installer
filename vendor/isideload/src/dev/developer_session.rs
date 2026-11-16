@@ -103,7 +103,7 @@ impl DeveloperSession {
 
         let body = base.into_iter().chain(body.into_iter()).collect();
 
-        let text = self
+        let request = self
             .client
             .post(url)?
             .body(plist_to_xml_string(&body))
@@ -111,9 +111,10 @@ impl DeveloperSession {
                 self.get_headers()
                     .await
                     .context("Failed to get anisette headers")?,
-            )
-            .send()
-            .await?
+            );
+        let text = super::transport::send(request)
+            .await
+            .context("Apple developer connection failed; check the Mac network or proxy and retry")?
             .error_for_status()
             .context("Developer request failed")?
             .text()
