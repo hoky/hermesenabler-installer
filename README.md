@@ -8,6 +8,14 @@
 
 > 修改 MobileGestalt 属于非官方操作。请先备份，在手表上的 HermesEnabler 中保存原始 MobileGestalt，再修改功能。本项目与 Apple Inc. 无关。
 
+## 直接下载安装
+
+无需安装 Rust 或自行编译。前往 [v1.0.1 Release](https://github.com/hoky/hermesenabler-installer/releases/tag/v1.0.1)，下载 **`HermesEnabler-Installer-1.0.1-macOS-arm64.dmg`**，打开后将 `HermesEnabler-Fixed.app` 拖入「应用程序」。本次预编译包仅适用于 **Apple Silicon（M 系列）Mac**，最低构建目标为 macOS 13；Intel Mac 需要自行构建。
+
+包内附有「安装说明.txt」，Release 同时提供 `SHA256SUMS.txt` 用于校验。该应用采用 ad-hoc 签名，未使用 Developer ID 签名，也未经 Apple 公证；首次运行若被系统阻止，请核对来源后在「系统设置 → 隐私与安全性」中按提示打开，无需关闭全局 Gatekeeper 或 SIP。
+
+**预编译包仍需要完整 Xcode，也不包含 HermesEnabler IPA。** 请继续完成下方的设备连接和 UDID 设置。
+
 ## 开始前准备
 
 - macOS 13 或以上，以及 **完整的 Xcode**。只有 Command Line Tools、能运行 `xcrun`，并不代表可以使用 `devicectl` 安装手表应用。当前安装流程使用 `/Applications/Xcode.app/Contents/Developer`。
@@ -35,7 +43,7 @@ open build/HermesEnabler-Fixed.app
 ./scripts/make-dmg.sh
 ```
 
-产物为 `dist/HermesEnabler-Installer-1.0.1-Fixed.dmg`。源码更新不等于已发布新的 Release；下载预编译包时请核对版本，旧版 `1.0` 不包含本页的连接重试和手表 UDID 输入修复。
+产物为 `dist/HermesEnabler-Installer-1.0.1-macOS-<架构>.dmg`。下载预编译包时请核对版本和架构，旧版 `1.0` 不包含本页的连接重试和手表 UDID 输入修复。
 
 ## 获取自己的手表 UDID
 

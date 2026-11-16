@@ -1,0 +1,41 @@
+HermesEnabler 安装器 1.0.1 修复版
+
+下载与说明：
+https://github.com/hoky/hermesenabler-installer/releases/tag/v1.0.1
+https://github.com/hoky/hermesenabler-installer#readme
+
+系统要求
+- 本次预编译包适用于 Apple Silicon（M 系列）Mac，不适用于 Intel Mac。
+- 最低构建目标为 macOS 13；本次在 macOS 27.2.1 验证。
+- 需要完整 Xcode，安装位置为 /Applications/Xcode.app。仅有 Command Line Tools 不够。
+- iPhone 与 Apple Watch 均需开启开发者模式，并与 Mac 建立连接。
+
+安装
+1. 打开 DMG，把 HermesEnabler-Fixed.app 拖入 Applications（应用程序）。
+2. 从应用程序打开 HermesEnabler-Fixed.app。
+3. 此包采用 ad-hoc 签名，未使用 Developer ID 签名，也未经 Apple 公证。
+   若 macOS 阻止打开，请先核对下载来源和 SHA256SUMS.txt，再到
+   系统设置 → 隐私与安全性，查看“仍要打开”选项并按系统提示操作。
+   不需要关闭全局 Gatekeeper 或 SIP。
+4. 从 HermesEnabler 原作者的 Releases 下载原版 IPA：
+   https://github.com/pookjw/HermesEnabler/releases
+   此 DMG 不包含 HermesEnabler IPA。
+5. 在 Xcode 的设备工具中连接手表，获取自己的手表 UDID。
+   Xcode 27.2：Xcode → Open Developer Tool → Device Hub → ＋ → Pair Nearby Device…
+   旧版 Xcode：Window → Devices and Simulators。
+   Device Hub 的“＋ → Apple Watch…”是创建模拟器，不是连接真机。
+6. 在安装器中填写自己的 Apple ID、密码、手表 UDID，选择 IPA 后开始安装。
+   多台设备连接时也填写目标 iPhone 的 UDID，按提示输入双重认证验证码。
+7. 检查手机和手表各自的安装结果，不能只看到手机成功就认为手表成功。
+8. 在手表运行 HermesEnabler，先保存原始 MobileGestalt 备份，再修改功能。
+
+排错
+- TLS 连接阶段失败会按 1、2、4 秒重试，最多 4 次尝试。持续失败时检查 Mac 网络。
+- 开发者账户的业务错误不会自动重试；请保留最新错误日志。
+- 程序没有内置用户的设备 UDID、账户或密码；手表 UDID 必须自行填写。
+- 免费签名通常 7 天到期。当前证书策略可能在额度不足时吊销旧证书，
+  影响用该证书签名的其他应用；详见 README。
+- 已验证构建、签名完整性、回归测试和无账户网络检查，
+  不代表所有账户和设备都已完成端到端签名、安装及表盘修改验证。
+
+本安装器基于开源项目构建。许可证见包内 LICENSE 和 THIRD_PARTY_LICENSES.md。

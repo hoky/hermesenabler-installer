@@ -2,13 +2,16 @@
 # 构建 hcli（CLI）与 HermesGUI（界面）
 set -euo pipefail
 cd "$(dirname "$0")/.."
+export MACOSX_DEPLOYMENT_TARGET="${MACOSX_DEPLOYMENT_TARGET:-13.0}"
+BUILD_ARCH="$(uname -m)"
 
 echo "==> 构建 hcli"
 cargo build --release --locked
 
 echo "==> 构建 GUI"
 mkdir -p build
-xcrun swiftc -O -framework Cocoa -framework SwiftUI gui/main.swift -o build/HermesGUI
+xcrun swiftc -O -target "${BUILD_ARCH}-apple-macosx${MACOSX_DEPLOYMENT_TARGET}" \
+  -framework Cocoa -framework SwiftUI gui/main.swift -o build/HermesGUI
 
 echo "==> 组装 .app"
 APP=build/HermesEnabler-Fixed.app
@@ -17,6 +20,7 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp build/HermesGUI "$APP/Contents/MacOS/HermesGUI"
 cp target/release/hcli "$APP/Contents/MacOS/hcli"
 cp LICENSE THIRD_PARTY_LICENSES.md "$APP/Contents/Resources/"
+cp docs/INSTALL.zh-CN.txt "$APP/Contents/Resources/"
 if [ -f assets/AppIcon.icns ]; then cp assets/AppIcon.icns "$APP/Contents/Resources/"; fi
 cat > "$APP/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
